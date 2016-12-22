@@ -2,15 +2,12 @@
  * External dependencies
  */
 import React, { Component } from 'react';
-import { bindActionCreators } from 'redux';
 import page from 'page';
-import { flowRight, omit, memoize } from 'lodash';
-import { connect } from 'react-redux';
-import { localize } from 'i18n-calypso';
 
 /**
  * Internal dependencies
  */
+import wrapSettingsForm from './wrap-settings-form';
 import Card from 'components/card';
 import CompactCard from 'components/card/compact';
 import Button from 'components/button';
@@ -19,9 +16,7 @@ import LanguageSelector from 'components/forms/language-selector';
 import DisconnectJetpackButton from 'my-sites/plugins/disconnect-jetpack/disconnect-jetpack-button';
 import SectionHeader from 'components/section-header';
 import config from 'config';
-import { protectForm } from 'lib/protect-form';
 import notices from 'notices';
-import trackForm from 'lib/track-form';
 import Gridicon from 'components/gridicon';
 import FormInput from 'components/forms/form-text-input';
 import FormFieldset from 'components/forms/form-fieldset';
@@ -36,146 +31,15 @@ import SiteIconSetting from './site-icon-setting';
 import UpgradeNudge from 'my-sites/upgrade-nudge';
 import { isBusiness } from 'lib/products-values';
 import { FEATURE_NO_BRANDING } from 'lib/plans/constants';
-import {
-	isRequestingSiteSettings,
-	isSavingSiteSettings,
-	isSiteSettingsSaveSuccessful,
-	getSiteSettings
-} from 'state/site-settings/selectors';
-import { recordGoogleEvent, recordTracksEvent } from 'state/analytics/actions';
-import { saveSiteSettings } from 'state/site-settings/actions';
-import { removeNotice } from 'state/notices/actions';
-import { getSelectedSiteId } from 'state/ui/selectors';
 import QuerySiteSettings from 'components/data/query-site-settings';
 
 class SiteSettingsFormGeneral extends Component {
-	getFormSettings( settings ) {
-		if ( ! settings ) {
-			return {};
-		}
-
-		const formSettings = {
-			blogname: settings.blogname,
-			blogdescription: settings.blogdescription,
-
-			lang_id: settings.lang_id,
-			blog_public: settings.blog_public,
-			timezone_string: settings.timezone_string,
-			jetpack_relatedposts_allowed: settings.jetpack_relatedposts_allowed,
-			jetpack_sync_non_public_post_stati: settings.jetpack_sync_non_public_post_stati,
-
-			amp_is_supported: settings.amp_is_supported,
-			amp_is_enabled: settings.amp_is_enabled,
-
-			holidaysnow: !! settings.holidaysnow
-		};
-
-		if ( settings.jetpack_relatedposts_allowed ) {
-			Object.assign( formSettings, {
-				jetpack_relatedposts_enabled: ( settings.jetpack_relatedposts_enabled ) ? 1 : 0,
-				jetpack_relatedposts_show_headline: settings.jetpack_relatedposts_show_headline,
-				jetpack_relatedposts_show_thumbnails: settings.jetpack_relatedposts_show_thumbnails
-			} );
-		}
-
-		// handling `gmt_offset` and `timezone_string` values
-		const gmt_offset = settings.gmt_offset;
-
-		if (
-			! settings.timezone_string &&
-			typeof gmt_offset === 'string' &&
-			gmt_offset.length
-		) {
-			formSettings.timezone_string = 'UTC' +
-				( /\-/.test( gmt_offset ) ? '' : '+' ) +
-				gmt_offset;
-		}
-
-		return formSettings;
-	}
-
 	componentWillMount() {
 		this._showWarning( this.props.site );
-		this.props.replaceFields( {
-			blogname: '',
-			blogdescription: '',
-			lang_id: '',
-			timezone_string: '',
-			blog_public: '',
-			admin_url: '',
-			jetpack_relatedposts_allowed: false,
-			jetpack_relatedposts_enabled: false,
-			jetpack_relatedposts_show_headline: false,
-			jetpack_relatedposts_show_thumbnails: false,
-			jetpack_sync_non_public_post_stati: false,
-			holidaysnow: false,
-			amp_is_supported: false,
-			amp_is_enabled: false,
-		} );
-		this.props.replaceFields( this.getFormSettings( this.props.settings ) );
 	}
 
 	componentWillReceiveProps( nextProps ) {
 		this._showWarning( nextProps.site );
-
-		if ( nextProps.siteId !== this.props.siteId ) {
-			nextProps.clearDirtyFields();
-		}
-
-		if ( nextProps.settings !== this.props.settings ) {
-			let newState = this.getFormSettings( nextProps.settings );
-			//If we have any fields that the user has updated,
-			//do not wipe out those fields from the poll update.
-			newState = omit( newState, nextProps.dirtyFields );
-			nextProps.replaceFields( newState );
-		}
-
-		if (
-			this.props.isSavingSettings &&
-			! nextProps.isSavingSettings &&
-			nextProps.isSaveRequestSuccessful
-		) {
-			nextProps.clearDirtyFields();
-			nextProps.markSaved();
-		}
-	}
-
-	handleRadio = event => {
-		const currentTargetName = event.currentTarget.name,
-			currentTargetValue = event.currentTarget.value;
-
-		this.props.updateFields( { [ currentTargetName ]: currentTargetValue } );
-	};
-
-	handleCheckbox = event => {
-		const currentTargetName = event.currentTarget.name,
-			currentTargetValue = this.props.fields[ currentTargetName ];
-
-		this.props.updateFields( { [ currentTargetName ]: ! currentTargetValue } );
-	};
-
-	handleSubmitForm = event => {
-		if ( ! event.isDefaultPrevented() && event.nativeEvent ) {
-			event.preventDefault();
-		}
-
-		this.submitForm();
-		this.props.trackClick( 'Save Settings Button' );
-	};
-
-	submitForm() {
-		const { fields, site } = this.props;
-		this.props.removeNotice( 'site-settings-save' );
-		this.props.saveSiteSettings( site.ID, fields );
-	}
-
-	onChangeField( field ) {
-		return event => {
-			const { updateFields } = this.props;
-			updateFields( {
-				[ field ]: event.target.value
-			} );
-		};
 	}
 
 	onTimezoneSelect = timezone => {
@@ -185,7 +49,7 @@ class SiteSettingsFormGeneral extends Component {
 	};
 
 	siteOptions() {
-		const { translate, isRequestingSettings, fields, clickTracker, typeTracker } = this.props;
+		const { translate, isRequestingSettings, fields, clickTracker, typeTracker, onChangeField } = this.props;
 
 		return (
 			<div className="site-settings__site-options">
@@ -197,7 +61,7 @@ class SiteSettingsFormGeneral extends Component {
 							id="blogname"
 							type="text"
 							value={ fields.blogname || '' }
-							onChange={ this.onChangeField( 'blogname' ) }
+							onChange={ onChangeField( 'blogname' ) }
 							disabled={ isRequestingSettings }
 							onClick={ clickTracker( 'Site Title Field' ) }
 							onKeyPress={ typeTracker( 'Site Title Field' ) } />
@@ -209,7 +73,7 @@ class SiteSettingsFormGeneral extends Component {
 							type="text"
 							id="blogdescription"
 							value={ fields.blogdescription || '' }
-							onChange={ this.onChangeField( 'blogdescription' ) }
+							onChange={ onChangeField( 'blogdescription' ) }
 							disabled={ isRequestingSettings }
 							onClick={ clickTracker( 'Site Tagline Field' ) }
 							onKeyPress={ typeTracker( 'Site Tagline Field' ) } />
@@ -286,7 +150,7 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	languageOptions() {
-		const { fields, isRequestingSettings, clickTracker, site, translate } = this.props;
+		const { clickTracker, fields, isRequestingSettings, onChangeField, site, translate } = this.props;
 		if ( site.jetpack ) {
 			return null;
 		}
@@ -298,7 +162,7 @@ class SiteSettingsFormGeneral extends Component {
 					id="lang_id"
 					languages={ config( 'languages' ) }
 					value={ fields.lang_id }
-					onChange={ this.onChangeField( 'lang_id' ) }
+					onChange={ onChangeField( 'lang_id' ) }
 					disabled={ isRequestingSettings }
 					onClick={ clickTracker( 'Language Field' ) } />
 				<FormSettingExplanation>
@@ -312,7 +176,7 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	visibilityOptions() {
-		const { fields, isRequestingSettings, clickTracker, site, translate } = this.props;
+		const { fields, handleRadio, isRequestingSettings, clickTracker, site, translate } = this.props;
 
 		return (
 			<FormFieldset>
@@ -321,7 +185,7 @@ class SiteSettingsFormGeneral extends Component {
 						name="blog_public"
 						value="1"
 						checked={ 1 === parseInt( fields.blog_public, 10 ) }
-						onChange={ this.handleRadio }
+						onChange={ handleRadio }
 						disabled={ isRequestingSettings }
 						onClick={ clickTracker( 'Site Visibility Radio Button' ) } />
 					<span>{ translate( 'Public' ) }</span>
@@ -335,7 +199,7 @@ class SiteSettingsFormGeneral extends Component {
 						name="blog_public"
 						value="0"
 						checked={ 0 === parseInt( fields.blog_public, 10 ) }
-						onChange={ this.handleRadio }
+						onChange={ handleRadio }
 						disabled={ isRequestingSettings }
 						onClick={ clickTracker( 'Site Visibility Radio Button' ) } />
 					<span>{ translate( 'Hidden' ) }</span>
@@ -350,7 +214,7 @@ class SiteSettingsFormGeneral extends Component {
 							name="blog_public"
 							value="-1"
 							checked={ -1 === parseInt( fields.blog_public, 10 ) }
-							onChange={ this.handleRadio }
+							onChange={ handleRadio }
 							disabled={ isRequestingSettings }
 							onClick={ clickTracker( 'Site Visibility Radio Button' ) } />
 						<span>{ translate( 'Private' ) }</span>
@@ -365,9 +229,9 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	handleAmpToggle = () => {
-		const { fields, trackClick, updateFields } = this.props;
+		const { fields, submitForm, trackClick, updateFields } = this.props;
 		updateFields( { amp_is_enabled: ! fields.amp_is_enabled }, () => {
-			this.submitForm();
+			submitForm();
 			trackClick( 'AMP Toggle' );
 		} );
 	};
@@ -434,7 +298,7 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	relatedPostsOptions() {
-		const { fields, clickTracker, translate } = this.props;
+		const { clickTracker, fields, handleCheckbox, handleRadio, translate } = this.props;
 		if ( ! fields.jetpack_relatedposts_allowed ) {
 			return null;
 		}
@@ -448,7 +312,7 @@ class SiteSettingsFormGeneral extends Component {
 								name="jetpack_relatedposts_enabled"
 								value="0"
 								checked={ 0 === parseInt( fields.jetpack_relatedposts_enabled, 10 ) }
-								onChange={ this.handleRadio }
+								onChange={ handleRadio }
 								onClick={ clickTracker( 'Related Posts Radio Button' ) } />
 							<span>{ translate( 'Hide related content after posts' ) }</span>
 						</FormLabel>
@@ -459,7 +323,7 @@ class SiteSettingsFormGeneral extends Component {
 								name="jetpack_relatedposts_enabled"
 								value="1"
 								checked={ 1 === parseInt( fields.jetpack_relatedposts_enabled, 10 ) }
-								onChange={ this.handleRadio }
+								onChange={ handleRadio }
 								onClick={ clickTracker( 'Related Posts Radio Button' ) } />
 							<span>{ translate( 'Show related content after posts' ) }</span>
 						</FormLabel>
@@ -471,7 +335,7 @@ class SiteSettingsFormGeneral extends Component {
 									<FormCheckbox
 										name="jetpack_relatedposts_show_headline"
 										checked={ fields.jetpack_relatedposts_show_headline }
-										onChange={ this.handleCheckbox } />
+										onChange={ handleCheckbox } />
 									<span>
 										{ translate(
 											'Show a "Related" header to more clearly separate the related section from posts'
@@ -484,7 +348,7 @@ class SiteSettingsFormGeneral extends Component {
 									<FormCheckbox
 										name="jetpack_relatedposts_show_thumbnails"
 										checked={ fields.jetpack_relatedposts_show_thumbnails }
-										onChange={ this.handleCheckbox } />
+										onChange={ handleCheckbox } />
 									<span>{ translate( 'Use a large and visually striking layout' ) }</span>
 								</FormLabel>
 							</li>
@@ -513,7 +377,7 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	syncNonPublicPostTypes() {
-		const { fields, translate } = this.props;
+		const { fields, handleCheckbox, translate } = this.props;
 		if ( ! this.showPublicPostTypesCheckbox() ) {
 			return null;
 		}
@@ -527,7 +391,7 @@ class SiteSettingsFormGeneral extends Component {
 								<FormCheckbox
 									name="jetpack_sync_non_public_post_stati"
 									checked={ fields.jetpack_sync_non_public_post_stati }
-									onChange={ this.handleCheckbox }
+									onChange={ handleCheckbox }
 								/>
 								<span>{ translate( 'Allow synchronization of Posts and Pages with non-public post statuses' ) }</span>
 								<FormSettingExplanation isIndented>
@@ -561,7 +425,7 @@ class SiteSettingsFormGeneral extends Component {
 
 	holidaySnowOption() {
 		// Note that years and months below are zero indexed
-		const { fields, moment, site, translate } = this.props,
+		const { fields, handleCheckbox, moment, site, translate } = this.props,
 			today = moment(),
 			startDate = moment( { year: today.year(), month: 11, day: 1 } ),
 			endDate = moment( { year: today.year(), month: 0, day: 4 } );
@@ -583,7 +447,7 @@ class SiteSettingsFormGeneral extends Component {
 							<FormCheckbox
 								name="holidaysnow"
 								checked={ !! fields.holidaysnow }
-								onChange={ this.handleCheckbox }
+								onChange={ handleCheckbox }
 							/>
 							<span>{ translate( 'Show falling snow on my blog until January 4th.' ) }</span>
 						</FormLabel>
@@ -634,7 +498,7 @@ class SiteSettingsFormGeneral extends Component {
 	}
 
 	render() {
-		const { isRequestingSettings, isSavingSettings, site, translate } = this.props;
+		const { handleSubmitForm, isRequestingSettings, isSavingSettings, site, translate } = this.props;
 		if ( site.jetpack && ! site.hasMinimumJetpackVersion ) {
 			return this.jetpackDisconnectOption();
 		}
@@ -645,7 +509,7 @@ class SiteSettingsFormGeneral extends Component {
 				<SectionHeader label={ translate( 'Site Profile' ) }>
 					<Button
 						compact={ true }
-						onClick={ this.handleSubmitForm }
+						onClick={ handleSubmitForm }
 						primary={ true }
 						data-tip-target="settings-site-profile-save"
 						type="submit"
@@ -669,7 +533,7 @@ class SiteSettingsFormGeneral extends Component {
 				<SectionHeader label={ translate( 'Privacy' ) }>
 					<Button
 						compact={ true }
-						onClick={ this.handleSubmitForm }
+						onClick={ handleSubmitForm }
 						primary={ true }
 
 						type="submit"
@@ -713,7 +577,7 @@ class SiteSettingsFormGeneral extends Component {
 				<SectionHeader label={ translate( 'Related Posts' ) }>
 					<Button
 						compact={ true }
-						onClick={ this.handleSubmitForm }
+						onClick={ handleSubmitForm }
 						primary={ true }
 
 						type="submit"
@@ -737,7 +601,7 @@ class SiteSettingsFormGeneral extends Component {
 							{ this.showPublicPostTypesCheckbox()
 								? <Button
 									compact={ true }
-									onClick={ this.handleSubmitForm }
+									onClick={ handleSubmitForm }
 									primary={ true }
 									type="submit"
 									disabled={ isRequestingSettings || isSavingSettings }>
@@ -784,41 +648,64 @@ class SiteSettingsFormGeneral extends Component {
 	}
 }
 
-const connectComponent = connect(
-	state => {
-		const siteId = getSelectedSiteId( state );
-		const isRequestingSettings = isRequestingSiteSettings( state, siteId );
-		const isSavingSettings = isSavingSiteSettings( state, siteId );
-		const isSaveRequestSuccessful = isSiteSettingsSaveSuccessful( state, siteId );
-		const settings = getSiteSettings( state, siteId );
-		return {
-			isRequestingSettings: isRequestingSettings && ! settings,
-			isSavingSettings,
-			isSaveRequestSuccessful,
-			settings,
-			siteId
-		};
-	},
-	dispatch => {
-		const boundActionCreators = bindActionCreators( {
-			recordTracksEvent,
-			removeNotice,
-			saveSiteSettings
-		}, dispatch );
-		const trackClick = name => dispatch( recordGoogleEvent( 'Site Settings', `Clicked ${ name }` ) );
-		const trackType = memoize( name => dispatch( recordGoogleEvent( 'Site Settings', `Typed in ${ name }` ) ) );
-		return {
-			...boundActionCreators,
-			clickTracker: message => () => trackClick( message ),
-			typeTracker: message => () => trackType( message ),
-			trackClick,
-		};
-	}
-);
+export default wrapSettingsForm( settings => {
+	const defaultSettings = {
+		blogname: '',
+		blogdescription: '',
+		lang_id: '',
+		timezone_string: '',
+		blog_public: '',
+		admin_url: '',
+		jetpack_relatedposts_allowed: false,
+		jetpack_relatedposts_enabled: false,
+		jetpack_relatedposts_show_headline: false,
+		jetpack_relatedposts_show_thumbnails: false,
+		jetpack_sync_non_public_post_stati: false,
+		holidaysnow: false,
+		amp_is_supported: false,
+		amp_is_enabled: false,
+	};
 
-export default flowRight(
-	connectComponent,
-	localize,
-	trackForm,
-	protectForm
-)( SiteSettingsFormGeneral );
+	if ( ! settings ) {
+		return defaultSettings;
+	}
+
+	const formSettings = {
+		blogname: settings.blogname,
+		blogdescription: settings.blogdescription,
+
+		lang_id: settings.lang_id,
+		blog_public: settings.blog_public,
+		timezone_string: settings.timezone_string,
+		jetpack_relatedposts_allowed: settings.jetpack_relatedposts_allowed,
+		jetpack_sync_non_public_post_stati: settings.jetpack_sync_non_public_post_stati,
+
+		amp_is_supported: settings.amp_is_supported,
+		amp_is_enabled: settings.amp_is_enabled,
+
+		holidaysnow: !! settings.holidaysnow
+	};
+
+	if ( settings.jetpack_relatedposts_allowed ) {
+		Object.assign( formSettings, {
+			jetpack_relatedposts_enabled: ( settings.jetpack_relatedposts_enabled ) ? 1 : 0,
+			jetpack_relatedposts_show_headline: settings.jetpack_relatedposts_show_headline,
+			jetpack_relatedposts_show_thumbnails: settings.jetpack_relatedposts_show_thumbnails
+		} );
+	}
+
+	// handling `gmt_offset` and `timezone_string` values
+	const gmt_offset = settings.gmt_offset;
+
+	if (
+		! settings.timezone_string &&
+		typeof gmt_offset === 'string' &&
+		gmt_offset.length
+	) {
+		formSettings.timezone_string = 'UTC' +
+			( /\-/.test( gmt_offset ) ? '' : '+' ) +
+			gmt_offset;
+	}
+
+	return formSettings;
+} )( SiteSettingsFormGeneral );
