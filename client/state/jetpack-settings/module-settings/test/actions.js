@@ -107,7 +107,8 @@ describe( 'actions', () => {
 					.persist()
 					.post( '/rest/v1.1/jetpack-blogs/' + siteId + '/rest-api/', {
 						path: '/jetpack/v4/module/' + moduleSlug,
-						body: JSON.stringify( settings )
+						body: JSON.stringify( settings ),
+						json: true
 					} )
 					.reply( 200, {
 						code: 'success'
@@ -145,7 +146,8 @@ describe( 'actions', () => {
 					.persist()
 					.post( '/rest/v1.1/jetpack-blogs/' + siteId + '/rest-api/', {
 						path: '/jetpack/v4/module/' + moduleSlug,
-						body: JSON.stringify( settings )
+						body: JSON.stringify( settings ),
+						json: true
 					} )
 					.reply( 400, {
 						message: 'Invalid option: setting_1'

@@ -206,7 +206,7 @@ Undocumented.prototype.updateJetpackModuleSettings = function( siteId, moduleSlu
 	//@TODO: implement and test this endpoint, it's currently not working
 	return this.wpcom.req.post(
 		{ path: '/jetpack-blogs/' + siteId + '/rest-api/' },
-		{ path: '/jetpack/v4/module/' + moduleSlug, body: JSON.stringify( settings ) },
+		{ path: '/jetpack/v4/module/' + moduleSlug, body: JSON.stringify( settings ), json: true },
 		fn
 	);
 };
