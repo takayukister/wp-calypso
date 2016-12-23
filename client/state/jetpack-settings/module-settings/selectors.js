@@ -1,7 +1,7 @@
 /**
  * External dependencies
  */
-import { get } from 'lodash';
+import { get, mapValues } from 'lodash';
 
 /**
  * Returns true if we are currently making a request to fetch the settings of a module. False otherwise
@@ -52,4 +52,27 @@ export function getModulesSettings( state, siteId ) {
  */
 export function getModuleSettings( state, siteId, moduleSlug ) {
 	return get( state.jetpackSettings.jetpackModuleSettings.items, [ siteId, moduleSlug ], null );
+}
+
+/**
+ * Returns the current settings for a module on a certain site.
+ * Returns null if the site or module is unknown, or module settings have not been fetched yet.
+ *
+ * @param  {Object}  state       Global state tree
+ * @param  {String}  siteId      The ID of the site we're querying
+ * @param  {String}  moduleSlug  Slug of the module
+ * @return {?Object}             Module settings with their values
+ */
+export function getCurrentModuleSettings( state, siteId, moduleSlug ) {
+	const moduleData = get( state.jetpackSettings.jetpackModuleSettings.items, [ siteId, moduleSlug ], null );
+	if ( ! moduleData ) {
+		return null;
+	}
+
+	const moduleOptions = get( moduleData, 'options', null );
+	if ( ! moduleOptions ) {
+		return null;
+	}
+
+	return mapValues( moduleOptions, moduleOption => moduleOption.current_value );
 }
