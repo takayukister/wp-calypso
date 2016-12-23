@@ -9,6 +9,20 @@ export const moduleSettings = {
 		setting_2: {
 			setting_3: 'some_value',
 		}
+	},
+	'module-c': {
+		setting_1: 1234,
+		options: {
+			option_1: {
+				current_value: 1234,
+			},
+			option_2: {
+				current_value: 'test',
+			},
+			option_3: {
+				current_value: false,
+			},
+		}
 	}
 };
 

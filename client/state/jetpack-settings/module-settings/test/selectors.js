@@ -8,6 +8,7 @@ import {
 	isUpdatingModuleSettings,
 	getModulesSettings,
 	getModuleSettings,
+	getCurrentModuleSettings,
 } from '../selectors';
 
 import {
@@ -173,6 +174,72 @@ describe( 'selectors', () => {
 				},
 				siteId = 12345678;
 			const output = getModuleSettings( stateIn, siteId, 'module-z' );
+			expect( output ).to.be.null;
+		} );
+	} );
+
+	describe( '#getCurrentModuleSettings', () => {
+		it( 'should return settings for a specified module for a known site', () => {
+			const stateIn = {
+					jetpackSettings: {
+						jetpackModuleSettings: {
+							items: {
+								12345678: MODULE_SETTINGS_FIXTURE
+							}
+						}
+					}
+				},
+				siteId = 12345678;
+			const output = getCurrentModuleSettings( stateIn, siteId, 'module-c' );
+			expect( output ).to.eql( {
+				option_1: 1234,
+				option_2: 'test',
+				option_3: false,
+			} );
+		} );
+
+		it( 'should return null for an unknown site', () => {
+			const stateIn = {
+					jetpackSettings: {
+						jetpackModuleSettings: {
+							items: {
+								654321: MODULE_SETTINGS_FIXTURE
+							}
+						}
+					}
+				},
+				siteId = 12345678;
+			const output = getCurrentModuleSettings( stateIn, siteId, 'module-a' );
+			expect( output ).to.be.null;
+		} );
+
+		it( 'should return null for an unknown module', () => {
+			const stateIn = {
+					jetpackSettings: {
+						jetpackModuleSettings: {
+							items: {
+								12345678: MODULE_SETTINGS_FIXTURE
+							}
+						}
+					}
+				},
+				siteId = 12345678;
+			const output = getCurrentModuleSettings( stateIn, siteId, 'module-z' );
+			expect( output ).to.be.null;
+		} );
+
+		it( 'should return null when options are missing', () => {
+			const stateIn = {
+					jetpackSettings: {
+						jetpackModuleSettings: {
+							items: {
+								12345678: MODULE_SETTINGS_FIXTURE
+							}
+						}
+					}
+				},
+				siteId = 12345678;
+			const output = getCurrentModuleSettings( stateIn, siteId, 'module-b' );
 			expect( output ).to.be.null;
 		} );
 	} );
