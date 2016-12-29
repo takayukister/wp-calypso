@@ -9,6 +9,8 @@ var React = require( 'react' ),
 
 import { AutoSizer, InfiniteLoader, Grid } from 'react-virtualized';
 import { connect } from 'react-redux';
+import { localize } from 'i18n-calypso';
+import fill from 'lodash/fill';
 
 /**
  * Internal dependencies
@@ -42,7 +44,8 @@ export const MediaLibraryList = React.createClass( {
 		single: React.PropTypes.bool,
 		scrollable: React.PropTypes.bool,
 		onEditItem: React.PropTypes.func,
-		padding: React.PropTypes.number
+		padding: React.PropTypes.number,
+		headingHeight: React.PropTypes.number
 	},
 
 	getInitialState: function() {
@@ -61,8 +64,20 @@ export const MediaLibraryList = React.createClass( {
 			single: false,
 			scrollable: false,
 			onEditItem: noop,
-			padding: 5
+			padding: 5,
+			headingHeight: 33
 		};
+	},
+
+	setRef: function( ref ) {
+		this.grid = ref;
+		this._registerChild( ref );
+	},
+
+	componentWillUpdate: function( props ) {
+		if ( this.grid && props.media.length > this.props.media.length ) {
+			this.grid.recomputeGridSize();
+		}
 	},
 
 	toggleItem: function( item, shiftKeyPressed ) {
@@ -114,15 +129,20 @@ export const MediaLibraryList = React.createClass( {
 
 		style = {
 			...style,
-			fontSize: this.props.mediaScale * 225,
 			top: style.top + this.props.padding,
 			left: style.left + this.props.padding,
 			width: style.width - this.props.padding * 2,
 			height: style.height - this.props.padding * 2,
-		}
+		};
 
 		if ( ! item ) {
 			return;
+		}
+
+		if ( item.heading ) {
+			return (
+				<h3 key={ key } style={ style }>{ item.heading }</h3>
+			);
 		}
 
 		if ( item.loading ) {
@@ -180,6 +200,63 @@ export const MediaLibraryList = React.createClass( {
 		}
 	},
 
+	getRowHeight: function( { index } ) {
+		const item = this._gridItems[ index * this._columnCount ];
+
+		if ( item && item.heading ) {
+			return this.props.headingHeight;
+		}
+
+		return this._gridSize;
+	},
+
+	formatDate: function( date ) {
+		const moment = this.props.moment( date );
+		const today = this.props.moment().startOf( 'day' );
+		const yesterday = today.clone().subtract( 1, 'days' );
+		const lastWeek = today.clone().subtract( 7, 'days' );
+
+		if ( today.isSame( moment, 'day' ) ) {
+			return this.props.translate( 'Today' );
+		} else if ( yesterday.isSame( moment, 'day' ) ) {
+			return this.props.translate( 'Yesterday' );
+		} else if ( lastWeek.isBefore( moment, 'day' ) ) {
+			return moment.format( 'dddd' );
+		}
+
+		return moment.format( 'D MMMM' );
+	},
+
+	getGridItems: function() {
+		const items = [];
+
+		this.props.media.forEach( ( item, index, media ) => {
+			if ( ! index || ! this.props.moment( media[ index - 1 ].date ).isSame( item.date, 'day' ) ) {
+				const trailing = items.length % this._columnCount;
+
+				if ( trailing ) {
+					items.push( ...Array( this._columnCount - trailing ) );
+				}
+
+				items.push( {
+					heading: this.formatDate( item.date ),
+				} );
+
+				items.push( ...Array( this._columnCount - 1 ) );
+			}
+
+			items.push( item );
+		} );
+
+		if ( this.props.mediaHasNextPage ) {
+			items.push( ...fill( Array( this.props.batchSize ), {
+				loading: true
+			} ) );
+		}
+
+		return items;
+	},
+
 	render: function() {
 		if ( this.props.filterRequiresUpgrade ) {
 			return <ListPlanUpgradeNudge filter={ this.props.filter } site={ this.props.site } />;
@@ -193,17 +270,8 @@ export const MediaLibraryList = React.createClass( {
 			} );
 		}
 
-		if ( this.props.mediaHasNextPage ) {
-			this._gridItems = this.props.media.concat(
-				Array.apply( null, new Array( this.props.batchSize ) ).map( () => {
-					return { loading: true };
-				} )
-			);
-		} else {
-			this._gridItems = this.props.media;
-		}
-
 		this._columnCount = Math.floor( 1 / this.props.mediaScale );
+		this._gridItems = this.getGridItems();
 		this._rowCount = Math.ceil( this._gridItems.length / this._columnCount );
 
 		return (
@@ -215,23 +283,35 @@ export const MediaLibraryList = React.createClass( {
 					threshold={ 1 }
 					minimumBatchSize={ this.props.batchSize }>
 					{ ( { onRowsRendered, registerChild } ) => (
-						<AutoSizer disableHeight={ this.props.disableHeight }>
-							{ ( { height, width } ) => (
-								<Grid
-									width={ width }
-									height={ this.props.disableHeight
-										? Math.floor( width / this._columnCount ) * this._rowCount
-										: height }
-									columnCount={ this._columnCount }
-									columnWidth={ Math.floor( width / this._columnCount ) }
-									rowCount={ this._rowCount }
-									rowHeight={ Math.floor( width / this._columnCount ) }
-									cellRenderer={ this.renderItem }
-									onSectionRendered={ this.createOnSectionRendered( onRowsRendered ) }
-									ref={ registerChild }
-									// Trigger update on change.
-									selectedItems={ this.props.mediaLibrarySelectedItems } />
-							) }
+						<AutoSizer
+							disableHeight={ this.props.disableHeight }>
+							{ ( { height, width } ) => {
+								this._gridSize = Math.floor( width / this._columnCount );
+								this._registerChild = registerChild;
+
+								if ( this.props.disableHeight ) {
+									height = 0;
+
+									for ( let index = 0; index < this._rowCount; index++ ) {
+										height += this.getRowHeight( { index } );
+									}
+								}
+
+								return (
+									<Grid
+										width={ width }
+										height={ height }
+										columnCount={ this._columnCount }
+										columnWidth={ this._gridSize }
+										rowCount={ this._rowCount }
+										rowHeight={ this.getRowHeight }
+										cellRenderer={ this.renderItem }
+										onSectionRendered={ this.createOnSectionRendered( onRowsRendered ) }
+										ref={ this.setRef }
+										// Trigger update on change.
+										selectedItems={ this.props.mediaLibrarySelectedItems } />
+								);
+							} }
 						</AutoSizer>
 					) }
 				</InfiniteLoader>
@@ -242,4 +322,4 @@ export const MediaLibraryList = React.createClass( {
 
 export default connect( ( state ) => ( {
 	mediaScale: getPreference( state, 'mediaScale' )
-} ), null, null, { pure: false } )( MediaLibraryList );
+} ), null, null, { pure: false } )( localize( MediaLibraryList ) );
