@@ -14,8 +14,10 @@
  */
 
 export canCurrentUser from './can-current-user';
+export getPostLikes from './get-post-likes';
 export getSharingButtons from './get-sharing-buttons';
 export isPrivateSite from './is-private-site';
 export isRequestingSharingButtons from './is-requesting-sharing-buttons';
 export isSavingSharingButtons from './is-saving-sharing-buttons';
 export isSharingButtonsSaveSuccessful from './is-sharing-buttons-save-successful';
+export isRequestingPostLikes from './is-requesting-post-likes';
