@@ -2,6 +2,7 @@
  * External dependencies
  */
 import React, { PropTypes } from 'react';
+import { connect } from 'react-redux';
 import page from 'page';
 
 /**
@@ -16,10 +17,10 @@ import HeaderCake from 'components/header-cake';
 import { decodeEntities } from 'lib/formatting';
 import Main from 'components/main';
 import StatsFirstView from '../stats-first-view';
+import PostLikes from '../stats-post-likes';
+import { getSelectedSiteId } from 'state/ui/selectors';
 
-export default React.createClass( {
-	displayName: 'StatsPostDetail',
-
+const StatsPostDetail = React.createClass( {
 	mixins: [ observe( 'postViewsList' ) ],
 
 	propTypes: {
@@ -87,7 +88,17 @@ export default React.createClass( {
 					postViewsList={ this.props.postViewsList } />
 
 				<PostWeeks postViewsList={ this.props.postViewsList } />
+
+				{ post && <PostLikes postId={ post.ID } siteId={ this.props.siteId } /> }
 			</Main>
 		);
 	}
 } );
+
+export default connect(
+	state => {
+		return {
+			siteId: getSelectedSiteId( state ),
+		};
+	}
+)( StatsPostDetail );
