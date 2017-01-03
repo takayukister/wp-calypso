@@ -14,6 +14,7 @@
  */
 
 export canCurrentUser from './can-current-user';
+export countPostLikes from './count-post-likes';
 export getPostLikes from './get-post-likes';
 export getSharingButtons from './get-sharing-buttons';
 export isPrivateSite from './is-private-site';
