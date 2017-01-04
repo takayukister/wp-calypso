@@ -932,7 +932,7 @@ describe( 'actions', () => {
 				{
 					type: 'THEMES_RECEIVE',
 					themes: [ successResponse ],
-					siteId: undefined
+					siteId: 2211667
 				},
 				{
 					type: 'THEME_INSTALL_SUCCESS',
