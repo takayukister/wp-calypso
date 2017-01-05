@@ -39,6 +39,11 @@ export const items = createReducer( {}, {
 		return merge( {}, state, {
 			[ siteId ]: settings
 		} );
+	},
+	[ JETPACK_SETTINGS_UPDATE_SUCCESS ]: ( state, { siteId, settings } ) => {
+		return merge( {}, state, {
+			[ siteId ]: settings
+		} );
 	}
 } );
 
